@@ -52,6 +52,8 @@
 #include "filters/mitchell.h"
 #include "filters/sinc.h"
 #include "filters/triangle.h"
+#include "integrators/direct.h"
+#include "integrators/area.h"
 #include "integrators/bdpt.h"
 #include "integrators/directlighting.h"
 #include "integrators/mlt.h"
@@ -1691,6 +1693,10 @@ Integrator *RenderOptions::MakeIntegrator() const {
         integrator = CreateAOIntegrator(IntegratorParams, sampler, camera);
     } else if (IntegratorName == "sppm") {
         integrator = CreateSPPMIntegrator(IntegratorParams, camera);
+    } else if (IntegratorName == "direct") {
+        integrator = CreateDirectIntegrator(IntegratorParams, sampler, camera);
+    } else if (IntegratorName == "area") {
+        integrator = CreateAreaIntegrator(IntegratorParams, sampler, camera);
     } else {
         Error("Integrator \"%s\" unknown.", IntegratorName.c_str());
         return nullptr;
