@@ -43,6 +43,8 @@
 #include "integrator.h"
 #include "scene.h"
 
+
+
 namespace pbrt {
 
 class AreaIntegrator : public SamplerIntegrator {
