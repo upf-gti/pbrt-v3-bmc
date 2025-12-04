@@ -1,4 +1,4 @@
-Integrator "direct" "integer numsamples" [ 32 ]
+Integrator "area" "integer numsamples" [ 32 ]
 Transform [ 1 -0 -0 -0 -0 1 -0 -0 -0 -0 -1 -0 -0 -1 6.8 1]
 Sampler "halton" "integer pixelsamples" [ 1 ] 
 PixelFilter "triangle" "float xwidth" [ 1.000000 ] "float ywidth" [ 1.000000 ] 

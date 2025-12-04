@@ -35,36 +35,35 @@
 #pragma once
 #endif
 
-#ifndef PBRT_INTEGRATORS_AREA_H
-#define PBRT_INTEGRATORS_AREA_H
+#ifndef PBRT_INTEGRATORS_DIRECT_H
+#define PBRT_INTEGRATORS_DIRECT_H
 
 // integrators/area.h*
 #include "pbrt.h"
 #include "integrator.h"
 #include "scene.h"
 
-
-
 namespace pbrt {
 
-class AreaIntegrator : public SamplerIntegrator {
-  public:
-    AreaIntegrator(int numSamples, std::shared_ptr<const Camera> camera,
+class DirectIntegrator : public SamplerIntegrator {
+    public:
+        DirectIntegrator(int numSamples, std::shared_ptr<const Camera> camera,
                       std::shared_ptr<Sampler> sampler,
                       const Bounds2i &pixelBounds)
-        : SamplerIntegrator(camera, sampler, pixelBounds),
-          num_shading_samples(numSamples) {}
-    Spectrum Li(const RayDifferential &ray, const Scene &scene,
+          : SamplerIntegrator(camera, sampler, pixelBounds),
+            num_shading_samples(numSamples) {}
+        Spectrum Li(const RayDifferential &ray, const Scene &scene,
                 Sampler &sampler, MemoryArena &arena, int depth) const;
 
-  private:
-    uint32_t num_shading_samples;
+    private:
+
+        uint32_t num_shading_samples;
 };
 
-AreaIntegrator *CreateAreaIntegrator(
+DirectIntegrator *CreateDirectIntegrator(
     const ParamSet &params, std::shared_ptr<Sampler> sampler,
     std::shared_ptr<const Camera> camera);
 
 }  // namespace pbrt
 
-#endif  // PBRT_INTEGRATORS_AREA_H
+#endif  // PBRT_INTEGRATORS_DIRECT_H
