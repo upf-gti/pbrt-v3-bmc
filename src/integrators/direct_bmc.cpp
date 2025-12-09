@@ -31,15 +31,14 @@
  */
 
 
-#include "integrators/direct.h"
+#include "integrators/direct_bmc.h"
 #include "interaction.h"
 #include "camera.h"
 #include "film.h"
 #include "paramset.h"
+#include "../GPRender/src/cov_kernels.h"
 
 // GTI
-
-
 
 namespace pbrt {
 
@@ -78,7 +77,7 @@ struct sSamplingParams {
 };
 
 // DirectIntegrator Method Definitions
-Spectrum DirectIntegrator::Li(const RayDifferential &ray, const Scene &scene,
+Spectrum DirectBMCIntegrator::Li(const RayDifferential &ray, const Scene &scene,
                                Sampler &sampler, MemoryArena &arena,
                                int depth) const {
     
@@ -94,11 +93,11 @@ Spectrum DirectIntegrator::Li(const RayDifferential &ray, const Scene &scene,
 
     // Add contribution of each light source
     Vector3f wiLocal, wiWorld;
-    Float pdf = 0.15915494309189533577;
+    Float pdf = 1.0 / (2.0 * PI);
     VisibilityTester visibility;
 
     // Random angle to rotate the GP directions
-    Float alpha = 2.0 * 3.1415 * sampler.Get1D();
+    Float alpha = 2.0 * PI * sampler.Get1D();
     Vector3f normal = {0.0, 0.0, 1.0};
     sSamplingParams *sampling_params = new sSamplingParams();
     sampling_params->normal = normal;
@@ -124,7 +123,7 @@ Spectrum DirectIntegrator::Li(const RayDifferential &ray, const Scene &scene,
     return L;
 }
 
-DirectIntegrator *CreateDirectIntegrator(
+std::unique_ptr<DirectBMCIntegrator> DirectBMCIntegrator::CreateDirectBMCIntegrator(
     const ParamSet &params, std::shared_ptr<Sampler> sampler,
     std::shared_ptr<const Camera> camera) {
     int numSamples = params.FindOneInt("numsamples", 32);
@@ -142,7 +141,57 @@ DirectIntegrator *CreateDirectIntegrator(
                 Error("Degenerate \"pixelbounds\" specified.");
         }
     }
-    return new DirectIntegrator(numSamples, camera, sampler, pixelBounds);
+
+    std::unique_ptr<DirectBMCIntegrator> bmc_integrator =
+        std::make_unique<DirectBMCIntegrator>(numSamples, camera, sampler,
+                                              pixelBounds);
+
+    bmc_integrator->bmc_list.resize(bmc_integrator->num_bmcs);
+
+    for (uint32_t i = 0; i < bmc_integrator->num_bmcs; ++i) {
+        pbrt_kernel::sSobolevParams *sobolev_params =
+            new pbrt_kernel::sSobolevParams();
+        sobolev_params->s = 1.5f;
+
+        GaussianProcess<Vector3f, SampledSpectrum>::sKernelInfo kernel_info;
+
+        kernel_info.kernel = pbrt_kernel::sobolev;
+        kernel_info.kernel_params = sobolev_params;
+
+        GaussianProcess<Vector3f, SampledSpectrum> *gaussian_process =
+            new GaussianProcess<Vector3f, SampledSpectrum>(kernel_info, 0.01);
+
+        // Set x number of samples (observation/training points), in our case
+        // directions
+        std::vector<Vector3f> sample_directions;
+        sample_directions.reserve(bmc_integrator->num_shading_samples);
+
+        // Victor's birth year plus offset :)
+        srand(1998 + i);
+
+        // Generate x random directions in sphere and store in array
+        Vector3f normal = Vector3f(0.0, 0.0, 1.0);
+        for (uint32_t s_idx = 0; s_idx < bmc_integrator->num_shading_samples;
+             s_idx++) {
+            sample_directions.push_back(random_on_hemisphere(&normal));
+        }
+
+        // Fill the GP instance with the array of directions (observation
+        // points)
+        gaussian_process->set_observations(sample_directions, {});
+
+        sSamplingParams *sampling_params = new sSamplingParams();
+        sampling_params->normal = normal;
+        BMC<Vector3f, SampledSpectrum>::sSamplingInfo sampling_info;
+        sampling_info.sample = random_on_hemisphere;
+        sampling_info.sample_params = sampling_params;
+
+        bmc_integrator->bmc_list[i] =
+            new BMC<Vector3f, SampledSpectrum>(sampling_info, gaussian_process);
+    }
+
+    printf("\nExecuting Direct BMC Integrator\n");
+    return bmc_integrator;
 }
 
 }  // namespace pbrt

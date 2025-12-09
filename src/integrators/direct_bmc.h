@@ -1,4 +1,3 @@
-
 /*
     pbrt source code is Copyright(c) 1998-2016
                         Matt Pharr, Greg Humphreys, and Wenzel Jakob.
@@ -42,27 +41,31 @@
 #include "pbrt.h"
 #include "integrator.h"
 #include "scene.h"
+#include "../GPRender/src/bmc.h"
 
 namespace pbrt {
 
-class DirectIntegrator : public SamplerIntegrator {
+class DirectBMCIntegrator : public SamplerIntegrator {
     public:
-        DirectIntegrator(int numSamples, std::shared_ptr<const Camera> camera,
+        DirectBMCIntegrator(int numSamples, std::shared_ptr<const Camera> camera,
                       std::shared_ptr<Sampler> sampler,
                       const Bounds2i &pixelBounds)
           : SamplerIntegrator(camera, sampler, pixelBounds),
             num_shading_samples(numSamples) {}
         Spectrum Li(const RayDifferential &ray, const Scene &scene,
                 Sampler &sampler, MemoryArena &arena, int depth) const;
-
+        static std::unique_ptr<DirectBMCIntegrator> CreateDirectBMCIntegrator(
+            const ParamSet &params, std::shared_ptr<Sampler> sampler,
+            std::shared_ptr<const Camera> camera);
+                
     private:
-
+                
         uint32_t num_shading_samples;
+        std::vector<BMC<Vector3f, SampledSpectrum> *> bmc_list;
+        uint32_t num_bmcs = 10;
 };
 
-DirectIntegrator *CreateDirectIntegrator(
-    const ParamSet &params, std::shared_ptr<Sampler> sampler,
-    std::shared_ptr<const Camera> camera);
+
 
 }  // namespace pbrt
 
