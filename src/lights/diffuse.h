@@ -66,7 +66,8 @@ class DiffuseAreaLight : public AreaLight {
     void Pdf_Le(const Ray &, const Normal3f &, Float *pdfPos,
                 Float *pdfDir) const;
 
-  protected:
+  //protected:
+  public:
     // DiffuseAreaLight Protected Data
     const Spectrum Lemit;
     std::shared_ptr<Shape> shape;

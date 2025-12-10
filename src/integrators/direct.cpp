@@ -36,6 +36,7 @@
 #include "camera.h"
 #include "film.h"
 #include "paramset.h"
+#include "../GPRender/src/eigen_utils.h"
 
 // GTI
 
@@ -94,11 +95,11 @@ Spectrum DirectIntegrator::Li(const RayDifferential &ray, const Scene &scene,
 
     // Add contribution of each light source
     Vector3f wiLocal, wiWorld;
-    Float pdf = 0.15915494309189533577;
+    Float pdf = 1.0 / (2.0 * PI);
     VisibilityTester visibility;
 
     // Random angle to rotate the GP directions
-    Float alpha = 2.0 * 3.1415 * sampler.Get1D();
+    Float alpha = 2.0 * PI * sampler.Get1D();
     Vector3f normal = {0.0, 0.0, 1.0};
     sSamplingParams *sampling_params = new sSamplingParams();
     sampling_params->normal = normal;

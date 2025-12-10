@@ -12,4 +12,4 @@
 	url = https://github.com/wdas/ptex.git
 [submodule "src/ext/GPRender"]
 	path = src/ext/GPRender
-	url = https://github.com/upf-gti/GPRender/
+	url = https://github.com/upf-gti/GPRender.git

@@ -331,6 +331,10 @@ ELSE()
 ENDIF()
 
 ###########################################################################
+# GPRender
+add_subdirectory(src/ext/gprender)
+
+###########################################################################
 # glog
 
 SET(WITH_GFLAGS OFF CACHE BOOL "Use gflags")
@@ -516,6 +520,7 @@ SET(ALL_PBRT_LIBS
   glog
   Ptex_static
   ${ZLIB_LIBRARY}
+  GPRender
 )
 
 # Main renderer

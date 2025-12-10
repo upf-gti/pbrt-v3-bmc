@@ -43,6 +43,8 @@
 #include "integrator.h"
 #include "scene.h"
 
+
+
 namespace pbrt {
 
 class AreaIntegrator : public SamplerIntegrator {
@@ -57,7 +59,6 @@ class AreaIntegrator : public SamplerIntegrator {
 
   private:
     uint32_t num_shading_samples;
-    
 };
 
 AreaIntegrator *CreateAreaIntegrator(

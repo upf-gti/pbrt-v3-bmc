@@ -36,53 +36,92 @@
 #include "camera.h"
 #include "film.h"
 #include "paramset.h"
+#include "lights/diffuse.h"
 
 // GTI
 
 namespace pbrt {
 
+struct sSamplingParams_area {
+    Vector3f corner;
+    Vector3f diagonal;
+};
+
+inline Vector3f random_on_area(const void *data) {
+    const sSamplingParams_area *params = static_cast<const sSamplingParams_area *>(data);
+    Vector3f corner = params->corner;
+    Vector3f diagonal = params->diagonal;
+
+    Float r1 = rand() / (RAND_MAX + 1.0);
+    Float r2 = rand() / (RAND_MAX + 1.0);
+
+    return Vector3f(corner.x + r1 * diagonal.x, corner.y,
+                    corner.z + r2 * diagonal.z);
+}
+
+
 // AreaIntegrator Method Definitions
 Spectrum AreaIntegrator::Li(const RayDifferential &ray, const Scene &scene,
                                Sampler &sampler, MemoryArena &arena,
                                int depth) const {
-    Spectrum L(0.);
-    // Find closest ray intersection or return background radiance
-    SurfaceInteraction isect;
-    if (!scene.Intersect(ray, &isect)) {
-        for (const auto &light : scene.lights) L += light->Le(ray);
-        return L;
-    }
-    // Compute emitted and reflected light at ray intersection point
 
-    const std::shared_ptr<Light> &light = scene.lights[0];
+    SurfaceInteraction isect, random_si;
+    if (!scene.Intersect(ray, &isect)) {
+        return Spectrum(0.0);
+    }
+    
+    // Initialize common variables for Direct integrator
+    Vector3f wo = isect.wo;
+    Spectrum Le = isect.Le(wo);
+    isect.ComputeScatteringFunctions(ray, arena);
+    //if (!isect.bsdf) return Le;
+    if (Le.MaxComponentValue() > 0.0) return Le;
+                
 
     // Initialize common variables for Area integrator
-    const Normal3f &n = isect.shading.n;
-    Vector3f wo = isect.wo;
-
-    isect.ComputeScatteringFunctions(ray, arena);
-    if (!isect.bsdf) return isect.Le(wo);
-
-    // Add contribution of each light source
+    Spectrum L(0.0), f(0.0);
+    Normal3f normal = isect.shading.n;
+    sSamplingParams_area *samplingParams = new sSamplingParams_area();
+    std::shared_ptr<Light> light = scene.lights[0];
+    
     Vector3f wi;
     Float pdf;
     VisibilityTester visibility;
-    for (const auto &light : scene.lights) {
-        Spectrum Ld = Spectrum(0.);
-        for (int i = 0; i < num_shading_samples; ++i) {
-            Spectrum Li = light->Sample_Li(isect, sampler.Get2D(), &wi, &pdf, &visibility);
-            if (Li.IsBlack() || pdf == 0) continue;
-            Spectrum f = isect.bsdf->f(wo, wi);
-            if (!f.IsBlack() && visibility.Unoccluded(scene))
-                Ld += f * Li * AbsDot(wi, n) / pdf;
+    Le = light->Sample_Li(isect, sampler.Get2D(), &wi, &pdf, &visibility);
+    Normal3f light_normal = visibility.P1().n;
+    auto *area_light =
+        dynamic_cast<const DiffuseAreaLight *>(light.get());
+    Bounds3f b = area_light->shape->WorldBound();
+    samplingParams->corner = Vector3f(b.pMin.x, b.pMin.y, b.pMin.z);
+    samplingParams->diagonal =
+        Vector3f(b.pMax.x - b.pMin.x, b.pMax.y - b.pMin.y, b.pMax.z - b.pMin.z);
+    Float area = samplingParams->diagonal.x * samplingParams->diagonal.y +
+                 samplingParams->diagonal.x * samplingParams->diagonal.z +
+                 samplingParams->diagonal.y * samplingParams->diagonal.z;
+    Float pdf_area = 1.0 / area;
+    Point3f x = isect.p;
+    for (int i = 0; i < num_shading_samples; ++i) {
+
+        Vector3f random_point = random_on_area(samplingParams);
+        Vector3f vector_to_light = random_point - Vector3f(x.x, x.y, x.z);
+        Vector3f wi = Normalize(vector_to_light);
+        Float maxT = vector_to_light.Length();
+        Ray nextRay = isect.SpawnRay(wi);
+
+        if (!scene.Intersect(nextRay, &random_si)) {
+            if (random_si.Le(wi).MaxComponentValue() > 0.0) {
+                f = isect.bsdf->f(wo, wi) * Dot(wi, normal);
+                Float geo = Dot(-wi, normal) / vector_to_light.LengthSquared();
+
+                L += Le * f * geo / pdf_area;
+            }
+
         }
-        
-        L += Ld / num_shading_samples;
 
     }
-    // Compute emitted light if ray hit an area light source
-    L += isect.Le(wo);
-
+        
+    L /= num_shading_samples;
+        
     return L;
 }
 
